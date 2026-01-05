@@ -1,0 +1,25 @@
+[dotenv@17.2.3] injecting env (2) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+========================================
+Data Collection Backend Server
+========================================
+Server running on port 8080
+Health check: http://localhost:8080
+========================================
+
+✓ Connected to MongoDB Atlas
+
+[NEW SESSION] test_20251229_143522
+Device: TEST-MACBOOK (TestUser)
+IP: 192.168.0.101
+[DATA RECEIVED] chrome - 3 items
+
+[NEW SESSION] test_20251229_154437_25178
+Device: TEST-PC (TestUser)
+IP: 192.168.1.105
+[DATA RECEIVED] chrome - 3 items
+[DATA RECEIVED] wifi - 2 items
+[DATA RECEIVED] system - N/A items
+[DATA RECEIVED] bookmarks - N/A items
+[DATA RECEIVED] cookies - N/A items
+[DATA RECEIVED] recent_files - 5 items
