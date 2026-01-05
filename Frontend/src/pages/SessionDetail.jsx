@@ -2,9 +2,24 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lock, Download, Monitor, Wifi, Globe, Bookmark, Cookie, FileText, HardDrive, Search, Trash2 } from 'lucide-react';
 import axios from 'axios';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+
+// Convert Chrome timestamp (microseconds since 1601) to JavaScript Date
+const convertChromeTime = (chromeTime) => {
+  if (!chromeTime || chromeTime === '0') return null;
+  try {
+    // Chrome time is in microseconds since Jan 1, 1601
+    // JavaScript time is in milliseconds since Jan 1, 1970
+    const epochDiff = 11644473600000; // milliseconds between 1601 and 1970
+    const timestamp = parseInt(chromeTime) / 1000 - epochDiff;
+    const date = new Date(timestamp);
+    return date.getTime() > 0 ? date : null;
+  } catch {
+    return null;
+  }
+};
 
 function SessionDetail({ onLogout }) {
   const { sessionId } = useParams();
@@ -260,14 +275,16 @@ function SessionDetail({ onLogout }) {
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {filterHistoryData(session.data.chrome_history).map((entry, idx) => {
                     const [url, title, visits, time] = entry.split('|');
+                    const visitDate = convertChromeTime(time);
                     return (
                       <div key={idx} className="border border-gray-700 rounded-lg p-3 hover:bg-gray-700 transition bg-gray-900">
                         <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-medium">
                           {title || url}
                         </a>
                         <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                          <span>{url}</span>
+                          <span className="truncate max-w-md">{url}</span>
                           <span>Visits: {visits}</span>
+                          {visitDate && <span>{format(visitDate, 'MMM d, yyyy h:mm a')}</span>}
                         </div>
                       </div>
                     );
@@ -297,15 +314,17 @@ function SessionDetail({ onLogout }) {
               {filterHistoryData(session.data?.brave_history)?.length > 0 ? (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {filterHistoryData(session.data.brave_history).map((entry, idx) => {
-                    const [url, title, visits] = entry.split('|');
+                    const [url, title, visits, time] = entry.split('|');
+                    const visitDate = convertChromeTime(time);
                     return (
-                      <div key={idx} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition">
-                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">
+                      <div key={idx} className="border border-gray-700 rounded-lg p-3 hover:bg-gray-700 transition bg-gray-900">
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-medium">
                           {title || url}
                         </a>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-400">
-                          <span>{url}</span>
+                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                          <span className="truncate max-w-md">{url}</span>
                           <span>Visits: {visits}</span>
+                          {visitDate && <span>{format(visitDate, 'MMM d, yyyy h:mm a')}</span>}
                         </div>
                       </div>
                     );
@@ -335,15 +354,17 @@ function SessionDetail({ onLogout }) {
               {filterHistoryData(session.data?.edge_history)?.length > 0 ? (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {filterHistoryData(session.data.edge_history).map((entry, idx) => {
-                    const [url, title, visits] = entry.split('|');
+                    const [url, title, visits, time] = entry.split('|');
+                    const visitDate = convertChromeTime(time);
                     return (
                       <div key={idx} className="border border-gray-700 rounded-lg p-3 hover:bg-gray-700 transition bg-gray-900">
                         <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-medium">
                           {title || url}
                         </a>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-400">
-                          <span>{url}</span>
+                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                          <span className="truncate max-w-md">{url}</span>
                           <span>Visits: {visits}</span>
+                          {visitDate && <span>{format(visitDate, 'MMM d, yyyy h:mm a')}</span>}
                         </div>
                       </div>
                     );
