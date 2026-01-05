@@ -53,29 +53,50 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// MongoDB Connection
+// MongoDB Connection Handler for Serverless
 const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI_ATLAS;
 
-if (!MONGODB_URI) {
-  console.error('✗ MONGODB_URI not found in environment variables');
-} else {
-  // Set mongoose options for serverless
-  mongoose.set('strictQuery', false);
-  
-  // Connect to MongoDB (connection pooling for serverless)
-  if (mongoose.connection.readyState === 0) {
-    mongoose.connect(MONGODB_URI, {
+let isConnected = false;
+
+const connectDB = async () => {
+  if (!MONGODB_URI) {
+    throw new Error('MONGODB_URI not found in environment variables');
+  }
+
+  if (isConnected && mongoose.connection.readyState === 1) {
+    return;
+  }
+
+  try {
+    mongoose.set('strictQuery', false);
+    
+    await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-    })
-    .then(() => {
-      console.log('✓ Connected to MongoDB Atlas');
-    })
-    .catch((err) => {
-      console.error('✗ MongoDB connection error:', err.message);
+      maxPoolSize: 10,
+      minPoolSize: 2,
     });
+    
+    isConnected = true;
+    console.log('✓ Connected to MongoDB Atlas');
+  } catch (err) {
+    console.error('✗ MongoDB connection error:', err.message);
+    throw err;
   }
-}
+};
+
+// Connect immediately for cold starts
+connectDB().catch(err => console.error('Initial connection failed:', err));
+
+// Middleware to ensure DB connection before handling requests
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Database connection failed', details: err.message });
+  }
+});
 
 // Routes
 app.use('/api', dataRoutes);  // All data routes under /api
