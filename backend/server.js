@@ -57,18 +57,25 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI_ATLAS;
 
 if (!MONGODB_URI) {
-  console.error('✗ MONGODB_URI not found in .env file');
-  process.exit(1);
+  console.error('✗ MONGODB_URI not found in environment variables');
+} else {
+  // Set mongoose options for serverless
+  mongoose.set('strictQuery', false);
+  
+  // Connect to MongoDB (connection pooling for serverless)
+  if (mongoose.connection.readyState === 0) {
+    mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    })
+    .then(() => {
+      console.log('✓ Connected to MongoDB Atlas');
+    })
+    .catch((err) => {
+      console.error('✗ MongoDB connection error:', err.message);
+    });
+  }
 }
-
-mongoose.connect(MONGODB_URI)
-.then(() => {
-  console.log('✓ Connected to MongoDB Atlas');
-})
-.catch((err) => {
-  console.error('✗ MongoDB connection error:', err);
-  process.exit(1);
-});
 
 // Routes
 app.use('/api', dataRoutes);  // All data routes under /api
